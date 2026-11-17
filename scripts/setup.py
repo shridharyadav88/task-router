@@ -350,8 +350,11 @@ def main():
     if err:
         print("cannot build table: %s" % err)
         return 2
-    print("ready to write %s for agents %s (spend ceiling %s)." %
-          (a.table, answers["agents"], answers.get("spend_ceiling")))
+    print("summary: agents=%s bundle=%s spend=%s cursor_frac=%s notes=%r prune_missing=%s" %
+          (answers["agents"], answers.get("bundle"), answers.get("spend_ceiling"),
+           answers.get("cursor_frac"), answers.get("plan_notes"),
+           answers.get("prune_missing")))
+    print("ready to write %s (verify runs BEFORE the write)." % a.table)
     if not a.force:
         try:
             ok = input("write it? (yes/no) [no]: ").strip().lower()

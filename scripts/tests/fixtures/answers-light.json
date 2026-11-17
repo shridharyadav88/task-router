@@ -1,0 +1,1 @@
+{"bundle": "light", "contract": "task-router-answers/1", "cursor_frac": null, "plan_notes": "single cheap pool", "prune_missing": true, "spend_ceiling": 1.0, "agents": ["codex"]}

@@ -12,6 +12,7 @@ cd task-router
 ./scripts/install.sh        # copies the skill to Claude/Codex/opencode, verifies sha256, proves the table loads
 ./scripts/install.sh --check-only   # re-verify installs any time (catches drift/clobber)
 ./scripts/install.sh --uninstall    # remove all three copies
+# optional weekly drift check (cron): 0 9 * * 1 cd <repo> && ./scripts/install.sh --check-only
 ```
 
 Requirements: python3 stdlib only, plus at least one coding-agent CLI

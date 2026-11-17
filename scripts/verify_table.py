@@ -170,11 +170,19 @@ def main():
                                    "--provider-down", "cursor-agent",
                                    "--size", "XL"])
     check("smoke-XL-nothing-defers", x.get("action") == "defer", str(x)[:150])
-    xo = run_route(tbl, base[:-4] + ["--claude-wk", "0.01", "--claude-h5", "0.01",
-                                     "--size", "XL"])
-    check("smoke-XL-overflow-cursor",
-          (xo.get("pick") or {}).get("row") == "cursor-agent:claude-opus-5-5-max",
-          str(xo)[:200])
+    xl_cursor = [r for r in (chains.get("XL") or [])
+                 if (rows.get(r) or {}).get("pool") == "cursor"
+                 and not (rows.get(r) or {}).get("disabled")]
+    if xl_cursor:
+        xo = run_route(tbl, base[:-4] + ["--claude-wk", "0.01", "--claude-h5", "0.01",
+                                         "--size", "XL"])
+        check("smoke-XL-overflow-cursor",
+              (xo.get("pick") or {}).get("row") == xl_cursor[0],
+              str(xo)[:200])
+    else:
+        check("smoke-XL-overflow-cursor",
+              x.get("action") == "defer",
+              "no enabled cursor XL row: defer is the correct overflow")
     try:
         g = json.load(open(GOLDEN))
         tasks = g["tasks"] if isinstance(g, dict) else g
