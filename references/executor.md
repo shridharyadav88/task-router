@@ -15,7 +15,7 @@ Orchestrator: `scripts/route_exec.py` (stdlib, zero model cost). One worker per 
 4. Snapshot: protected-path hashes + collected-test count (when `--collect-cmd` given) + clean-tree check.
 5. Launch ONE worker in a disposable worktree (`git worktree add --detach`), hard caps + wall-clock timeout (S 10 / M 20 / L 40 / XL 90 min; claude also `--max-budget-usd`). Packet = PACKET.md in worktree (spec + rules: implement only, never edit tests/configs, stay in diff cap, finish with quiet targeted test run ~2KB output). Prompt references the file; full logs never cross agents.
 6. Verify (all free): criterion green AND protected hashes equal AND count floor met AND diff within cap (S <=150 lines/5 files, M <=400/12, L <=1000/25, XL uncapped) AND lint (if given).
-7. Fail -> deterministic triage (regex on exit code/stderr, no LLM): flaky (passes on unchanged-tree rerun) -> `human`; transient (429/timeout/OOM/net) -> reschedule, STILL counts to the cap; else escalate ONCE from base with the 4KB digest (spec path+sha, failing test IDs, last 40 failure lines).
+7. Fail -> deterministic triage (regex on exit code/stderr, no LLM): flaky (passes on unchanged-tree rerun) -> `human`; transient (429/timeout/OOM/net) -> reschedule, STILL counts to the cap; else same-size ranked fallback first, then escalate ONCE (+1 size) from base with the 4KB digest (spec path+sha, failing test IDs, last 40 failure lines).
 8. Second fail -> `human` with pre-digested packet (spec hash, both attempts, log paths). Total 3 launches max, transient retries included; per-task $2 ceiling across attempts (actuals parsed, estimates enforce).
 9. Log actuals: claude `total_cost_usd`, codex JSON tokens. No manual reconcile.
 
