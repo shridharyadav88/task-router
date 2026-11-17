@@ -82,8 +82,9 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 
 - Claude Code: skill auto-loads; or run the script via `terminal` with the skill path.
 - Cursor: `cursor-agent -p "Follow SKILL.md at <skill-path>, recommend only for SPEC"` with `--model` pinned to an explicit id.
-- Codex: `codex exec "Follow <skill-path>/SKILL.md; recommend only, no edits"` (no `--model` on this plan).
+- Codex: `codex exec -m <slug> "Follow <skill-path>/SKILL.md; recommend only, no edits"` (model pinned to `gpt-6-chat-thinking`, the plan default; reasoning effort via `-c model_reasoning_effort=`).
 - Opencode/Copilot (staged): paste SKILL.md + `references/routing-table.json`; run the script with system python3.
+- Cursor binary is `cursor-agent` (the `Usage: agent` line in its help is branding only); never pass `--fallback-model` to it — the flag does not exist there. Claude-side `--fallback-model` is banned too: the router owns fallback order (route.py candidates), never the CLI.
 
 ## Gotchas
 

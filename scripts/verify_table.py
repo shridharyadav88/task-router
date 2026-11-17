@@ -70,6 +70,28 @@ def main():
     check("chain-M-opens-R3", (chains.get("M") or [None])[0] == "R3")
     check("chain-L-opens-R2", (chains.get("L") or [None])[0] == "R2")
     check("chain-XL-top-only", chains.get("XL") == ["R1", "R2"])
+    check("no-audit_line-in-table", "audit_line" not in t)
+    try:
+        au = json.load(open(os.path.join(HERE, "..", "references",
+                                          "audit-schema.json")))
+        check("audit-schema-valid",
+              au.get("schema_v") == "1" and len(au.get("columns", [])) == 19)
+    except (OSError, ValueError) as e:
+        check("audit-schema-valid", False, str(e)[:100])
+    check("haiku-row-R7",
+          (rows.get("R7") or {}).get("model") == "haiku"
+          and (rows.get("R7") or {}).get("pool") == "claude"
+          and (rows.get("R7") or {}).get("sizes") == ["S", "M"])
+    check("haiku-SM-only",
+          "R7" in (chains.get("S") or []) and "R7" in (chains.get("M") or [])
+          and "R7" not in (chains.get("L") or [])
+          and "R7" not in (chains.get("XL") or []))
+    check("codex-pinned",
+          (rows.get("R3") or {}).get("model") == "gpt-6-chat-thinking"
+          and "-m" in t.get("cmd", {}).get("codex", ""))
+    check("cursor-id-kept",
+          "CURSOR" in rows and all("CURSOR" in (chains.get(s) or [])
+                                   for s in ("S", "M", "L")))
     eff = t.get("effort", {})
     check("effort-SM-opencode-model",
           eff.get("S", {}).get("opencode") == r5.get("model") and

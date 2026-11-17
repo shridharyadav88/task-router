@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 AGENT_ALIAS = {"claude": "claude-code", "codex": "codex", "cursor": "cursor-agent",
                 "muse": "muse", "opencode": "opencode"}
+CODEX_MODELS = {"default", "gpt-6-chat-thinking"}
 
 
 def norm_expected(exp):
@@ -82,8 +83,14 @@ def main():
             ea, em, ee = norm_expected(exp)
             if ea == "clarify":
                 match = False
+            elif (got["agent"], got["effort"]) != (ea, ee):
+                match = False
+            elif em is None:
+                match = True
+            elif got["agent"] == "codex":
+                match = got["model"] in CODEX_MODELS
             else:
-                match = (got["agent"], got["effort"]) == (ea, ee) and (em is None or got["model"] == em)
+                match = got["model"] == em
         total += 1
         hits += bool(match)
         rows.append({"id": t["id"], "expected": exp, "got": got_str,

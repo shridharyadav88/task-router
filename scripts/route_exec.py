@@ -115,7 +115,7 @@ def worker_cmd(pick, prompt, budget_left, timeout_s, codex_sandbox):
                  str(round(budget_left, 2)), "--output-format", "json"], timeout_s, "claude")
     if ag == "codex":
         eff = {"low": "low", "medium": "medium", "high": "high", "max": "xhigh"}[effort]
-        return (["codex", "exec", "--sandbox", codex_sandbox, "--json",
+        return (["codex", "exec", "-m", model, "--sandbox", codex_sandbox, "--json",
                  "-c", 'model_reasoning_effort="%s"' % eff, prompt], timeout_s, "codex")
     if ag == "muse":
         return (["muse", "exec", prompt], timeout_s, "muse")
