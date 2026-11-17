@@ -4,6 +4,47 @@ Recommend-only router + script-orchestrated executor that sends each coding task
 
 The table generalizes: swap in your own `(agent, model, effort)` rows and quota pools.
 
+## Install (one command)
+
+```bash
+git clone https://github.com/shridharyadav88/task-router.git
+cd task-router
+./scripts/install.sh        # copies the skill to Claude/Codex/opencode, verifies sha256, proves the table loads
+./scripts/install.sh --check-only   # re-verify installs any time (catches drift/clobber)
+./scripts/install.sh --uninstall    # remove all three copies
+```
+
+Requirements: python3 stdlib only, plus at least one coding-agent CLI
+(`claude`, `codex`, `cursor-agent`).
+
+## Your first routed task (5 minutes)
+
+```bash
+python3 scripts/setup.py --discover        # read-only: what agents/models you have
+python3 scripts/setup.py --guided          # tick off agents (1,3,4), pick a bundle,
+                                           # cursor fraction or blank, spend ceiling —
+                                           # verify runs BEFORE anything is written
+python3 scripts/setup.py --demo            # dry-run route preview, zero writes, zero quota
+echo "add dark mode toggle" > task.txt
+python3 scripts/route.py --spec task.txt --size S --claude-wk 1 --claude-h5 1 --codex-wk 1 --codex-h5 1
+```
+
+Prefer chatting to typing? Paste `SETUP_PROMPT.md` into your own agent
+(Claude/Codex/Cursor chat): it interviews you, emits a fenced `answers.json`,
+and you run `setup.py --from-answers answers.json` — same schema, same verify gate.
+Validate any answers file any time: `setup.py --validate-only answers.json`.
+
+## When the router answers (failure-mode table)
+
+| Output | Meaning | Exact next command |
+|---|---|---|
+| `pick` + row/cmd | routed — run the printed command, or hand it to that agent | `codex exec …` (or your pick's `cmd`) |
+| `clarify` | spec too vague to size — no quota spent | answer the 3 `ask` lines, re-run |
+| `defer` (`no eligible row`) | every pool RESERVE/down for this size | wait for reset, or re-run with `--provider-down` removed / a smaller scope |
+| `defer` (XL, both pools out) | claude + cursor pools lack headroom | wait, or split the task below XL |
+| `spec_too_long` | spec over 48k chars — trim, never truncate | shorten the spec, re-run |
+| `error` | bad input (unreadable spec, missing --size, bad table) | read `why`, fix the input |
+
 ## Problem
 
 Most developers now pay for several AI coding subscriptions at once: a Claude plan, a Cursor plan, ChatGPT for Codex, plus whatever free tier or local model fills the gaps. Free tiers count too, and their limits are the tightest of all. Each plan meters usage differently. Five-hour windows here, weekly pools there, per-model multipliers somewhere else. Blow a weekly pool and you are locked out for days, including plain chat.
@@ -76,12 +117,17 @@ Batch routing with spread: add `--avoid-agent <id>` for providers already carryi
 
 ```
 SKILL.md                  # the skill: triggers, procedure, gates, gotchas
+SETUP_PROMPT.md           # paste-in setup interview for your own agent
 references/routing-table.json   # rows, chains, effort, bars, quotas, timeouts
 references/golden-set.json      # 30 calibrated tasks
 references/executor.md        # v1 pipeline spec
 references/calibration.md     # fits, misses, design changes
+references/risks.md           # per-area risk → mitigation → catching gate
+references/audit-schema.json  # ledger schema (v1, 19 columns)
 scripts/route.py          # recommend-only lookup
 scripts/route_exec.py     # script-orchestrated executor
+scripts/setup.py          # setup wizard: discover/guided/from-answers/demo
+scripts/install.sh        # one-command installer (+ --check-only, --uninstall)
 scripts/size.py           # elephant-9b sizing + Jev combiner
 ```
 

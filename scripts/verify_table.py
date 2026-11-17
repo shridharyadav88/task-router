@@ -95,12 +95,29 @@ def main():
           all(c.get("status") != "picked" or c.get("agent") != "cursor-agent"
               for c in cf.get("candidates", [])),
           str(cf)[:200])
+    dis = run_route(tbl, ["--spec", "/tmp/verify-spec.txt", "--claude-wk", "1",
+                          "--claude-h5", "1", "--codex-wk", "1", "--codex-h5", "1",
+                          "--size", "S"])
+    check("disabled-never-picked",
+          all((c.get("status") != "picked" or
+               not (t["rows"].get(c.get("row")) or {}).get("disabled"))
+              for c in dis.get("candidates", [])))
     check("no-audit_line-in-table", "audit_line" not in t)
     try:
         au = json.load(open(os.path.join(HERE, "..", "references",
                                           "audit-schema.json")))
         check("audit-schema-valid",
               au.get("schema_v") == "1" and len(au.get("columns", [])) == 19)
+        try:
+            sc = json.load(open(os.path.join(HERE, "answers.schema.json")))
+            ex = json.load(open(os.path.join(HERE, "tests", "fixtures",
+                                              "answers-example.json")))
+            check("answers-contract-valid",
+                  ex.get("contract") == sc.get("contract") and
+                  all(a in ("claude-code", "codex", "cursor-agent", "muse", "opencode")
+                      for a in ex.get("agents", [])) and len(ex.get("agents", [])) > 0)
+        except (OSError, ValueError) as e:
+            check("answers-contract-valid", False, str(e)[:100])
     except (OSError, ValueError) as e:
         check("audit-schema-valid", False, str(e)[:100])
     r7 = rows.get("claude-code:haiku", {})
