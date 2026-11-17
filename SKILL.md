@@ -38,7 +38,7 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 
 ## Benchmark Rule (never mix the two indices)
 
-- Route ONLY on `(agent, model, effort)` rows from `references/routing-table.json` (table_v 2026-12; AA Coding Agents Index snapshot 2026-11-10): R1 claude + Opus 5.5 Max 61.7, R2 claude + Sonnet 5.5 Max 59.3, R3 codex default ~54, R4 muse, R5 opencode free, CURSOR pinned-last. Edit the JSON to change routing — never the script; `route.py --self-test` proves the table loads.
+- Route ONLY on `(harness, model, effort)` rows from `references/routing-table.json` (table_format 2, table_v 2026-12; AA Coding Agents Index snapshot 2026-11-10). Rows are keyed by composite `harness:model` id with a stable R-alias for audit continuity (R1 claude/opus 61.7, R2 claude/sonnet 59.3, R3 codex/gpt-6-chat-thinking ~54, R4 muse, R5 opencode free, R7 claude/haiku, CURSOR pinned-last, plus cursor-opus-5-5 slug variants per size). Same model via different harnesses = adjacent rows; S/M/L order direct pools before metered cursor rows (tripwire-gated), XL allows model-first fallback (R1 → cursor-opus-max → R2). Edit the JSON to change routing — never the script; `route.py --self-test` proves the table loads; old v1 tables still load via alias synthesis.
 - Within ~3 pts = tie, cheapest quota wins. Exception (Opus-grill decision): XL always goes R1.
 - The AA Coding Index (model-only: Fable 5.1 81.6, Opus 5 78.0) is context only. Fable is #1 model but #8 harness: score the harness, not the model.
 
@@ -61,13 +61,14 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 
 - 429/quota error marks that provider RESERVE for its window; repick cross-provider (claude-chat == claude-code pool, chatgpt == codex pool; never retry same pool).
 - Attempt 2 is the same-size ranked fallback from base; at most one size-up escalation after that; 2nd failure returns `human`.
-- Weekly under 20% = RESERVE (S tasks only); UNKNOWN = LOW; XL with no headroom returns `defer`.
+- Weekly under 20% = RESERVE (S tasks only); UNKNOWN = LOW; XL defers only when BOTH claude and cursor pools lack headroom — otherwise XL overflows to cursor-opus-max.
 
 ## Verification
 
 - `terminal(command="python3 <skill>/scripts/route.py --spec <f> --size M --log <tmp>")` prints JSON with agent/model/effort + row; the tmp log holds a valid JSON line.
 - Smoke: golden L3 enters M and exits L (risk bump); the vague-XL1 variant exits `clarify`.
-- `scripts/verify_table.py` checks `references/routing-table.json` (schema, chains, effort coverage, golden parity smoke) — always run it with workdir set to the skill directory (e.g. `python3 scripts/verify_table.py` from there). An absolute script path from another cwd raises FileNotFoundError and proves nothing about the table.
+- `scripts/verify_table.py` checks `references/routing-table.json` (schema, chains, effort coverage, cost-tier tripwire, v1-table back-compat, golden parity smoke) — always run it with workdir set to the skill directory (e.g. `python3 scripts/verify_table.py` from there). An absolute script path from another cwd raises FileNotFoundError and proves nothing about the table.
+- Setup: `scripts/setup.py --discover` (read-only: binaries, cursor slugs, codex cache, claude aliases) → `--write` asks only plan caps + spend ceiling + confirm and writes the table (needs `--force` to clobber) → `--refresh` updates catalogs, reports new-slug drift, never touches rows/chains.
 
 ## Executor v1 (script-orchestrated, zero model cost)
 
@@ -84,7 +85,7 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 - Cursor: `cursor-agent -p "Follow SKILL.md at <skill-path>, recommend only for SPEC"` with `--model` pinned to an explicit id.
 - Codex: `codex exec -m <slug> "Follow <skill-path>/SKILL.md; recommend only, no edits"` (model pinned to `gpt-6-chat-thinking`, the plan default; reasoning effort via `-c model_reasoning_effort=`).
 - Opencode/Copilot (staged): paste SKILL.md + `references/routing-table.json`; run the script with system python3.
-- Cursor binary is `cursor-agent` (the `Usage: agent` line in its help is branding only); never pass `--fallback-model` to it — the flag does not exist there. Claude-side `--fallback-model` is banned too: the router owns fallback order (route.py candidates), never the CLI.
+- Silent-quota-burn risks are mapped per area with mitigation + catching gate in `references/risks.md` (cost tiers, cursor-frac, slug drift, XL overflow, setup clobber, audit drift, golden compat).
 
 ## Gotchas
 

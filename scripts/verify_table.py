@@ -32,6 +32,17 @@ def run_route(table, args):
         return {"action": "error", "stderr": r.stderr[-200:]}
 
 
+def _direct_before_cursor(chain, rows):
+    seen_cursor = False
+    for rid in chain:
+        pool = (rows.get(rid) or {}).get("pool")
+        if pool == "cursor":
+            seen_cursor = True
+        elif pool in ("claude", "codex") and seen_cursor:
+            return False
+    return True
+
+
 def main():
     tbl = (sys.argv[sys.argv.index("--table") + 1] if "--table" in sys.argv
            else DEFAULT_TABLE)
@@ -47,29 +58,43 @@ def main():
           all(k in bars and isinstance(bars[k], (int, float))
               for k in ("S", "M", "L", "XL")), str(sorted(bars)))
     rows = t.get("rows", {})
-    for rid in ("R1", "R2", "R3", "R4", "R5", "CURSOR", "R6"):
+    for rid in ("claude-code:opus", "claude-code:sonnet",
+                "codex:gpt-6-chat-thinking", "muse:muse-spark-1.3",
+                "opencode:deepseek-v4.1-flash-free", "cursor-agent:pinned",
+                "openrouter:elephant-1"):
         r = rows.get(rid) or {}
         check("row-%s" % rid,
               all(k in r for k in ("agent", "model", "pool")), rid)
-    check("muse-row", (rows.get("R4") or {}).get("model") == "muse-spark-1.3")
-    r5 = rows.get("R5") or {}
+    check("muse-row", (rows.get("muse:muse-spark-1.3") or {}).get("model") == "muse-spark-1.3")
+    r5 = rows.get("opencode:deepseek-v4.1-flash-free", {})
     check("opencode-row", "deepseek" in (r5.get("model") or ""),
           str(r5.get("model")))
-    r6 = rows.get("R6") or {}
+    r6 = rows.get("openrouter:elephant-1", {})
     check("openrouter-row-nonworker",
           r6.get("worker") is False and "elephant-1" in (r6.get("model") or ""))
     check("point-cap", t.get("point_cap_usd") == 10.0)
     check("codex-default-named",
-          "gpt-6-chat-thinking" in (rows.get("R3") or {}).get("label", ""))
+          "gpt-6-chat-thinking" in (rows.get("codex:gpt-6-chat-thinking") or {}).get("label", ""))
     chains = t.get("chains", {})
     check("chains-four-sizes", set(chains) == {"S", "M", "L", "XL"})
     for sz, ch in chains.items():
         check("chain-%s-valid" % sz,
               bool(ch) and all(rid in rows for rid in ch), str(ch))
-    check("chain-S-opens-R3", (chains.get("S") or [None])[0] == "R3")
-    check("chain-M-opens-R3", (chains.get("M") or [None])[0] == "R3")
-    check("chain-L-opens-R2", (chains.get("L") or [None])[0] == "R2")
-    check("chain-XL-top-only", chains.get("XL") == ["R1", "R2"])
+    check("chain-S-opens-codex", (chains.get("S") or [None])[0] == "codex:gpt-6-chat-thinking")
+    check("chain-M-opens-codex", (chains.get("M") or [None])[0] == "codex:gpt-6-chat-thinking")
+    check("chain-L-opens-sonnet", (chains.get("L") or [None])[0] == "claude-code:sonnet")
+    check("chain-XL-model-first", chains.get("XL") == ["claude-code:opus", "cursor-agent:claude-opus-5-5-max", "claude-code:sonnet"])
+    check("tripwire-direct-before-metered",
+          all(_direct_before_cursor(chains.get(s, []), rows) for s in ("S", "M", "L")),
+          "cursor-pool row precedes a claude/codex-pool row")
+    cf = run_route(tbl, ["--spec", "/tmp/verify-spec.txt", "--claude-wk", "1",
+                          "--claude-h5", "1", "--codex-wk", "1", "--codex-h5", "1",
+                          "--cursor-frac", "0.01", "--size", "S"])
+    check("cursor-frac-RESERVE-skips",
+          (cf.get("pick") or {}).get("alias") == "R3" and
+          all(c.get("status") != "picked" or c.get("agent") != "cursor-agent"
+              for c in cf.get("candidates", [])),
+          str(cf)[:200])
     check("no-audit_line-in-table", "audit_line" not in t)
     try:
         au = json.load(open(os.path.join(HERE, "..", "references",
@@ -78,20 +103,29 @@ def main():
               au.get("schema_v") == "1" and len(au.get("columns", [])) == 19)
     except (OSError, ValueError) as e:
         check("audit-schema-valid", False, str(e)[:100])
+    r7 = rows.get("claude-code:haiku", {})
     check("haiku-row-R7",
-          (rows.get("R7") or {}).get("model") == "haiku"
-          and (rows.get("R7") or {}).get("pool") == "claude"
-          and (rows.get("R7") or {}).get("sizes") == ["S", "M"])
+          r7.get("model") == "haiku"
+          and r7.get("pool") == "claude"
+          and r7.get("sizes") == ["S", "M"]
+          and r7.get("alias") == "R7")
     check("haiku-SM-only",
-          "R7" in (chains.get("S") or []) and "R7" in (chains.get("M") or [])
-          and "R7" not in (chains.get("L") or [])
-          and "R7" not in (chains.get("XL") or []))
+          "claude-code:haiku" in (chains.get("S") or []) and "claude-code:haiku" in (chains.get("M") or [])
+          and "claude-code:haiku" not in (chains.get("L") or [])
+          and "claude-code:haiku" not in (chains.get("XL") or []))
     check("codex-pinned",
-          (rows.get("R3") or {}).get("model") == "gpt-6-chat-thinking"
+          (rows.get("codex:gpt-6-chat-thinking") or {}).get("model") == "gpt-6-chat-thinking"
           and "-m" in t.get("cmd", {}).get("codex", ""))
     check("cursor-id-kept",
-          "CURSOR" in rows and all("CURSOR" in (chains.get(s) or [])
-                                   for s in ("S", "M", "L")))
+          "cursor-agent:pinned" in rows and all("cursor-agent:pinned" in (chains.get(s) or [])
+                                               for s in ("S", "M", "L")))
+    fix = os.path.join(HERE, "tests", "fixtures", "table-v1.json")
+    try:
+        v1 = run_route(fix, ["--spec", "/tmp/verify-spec.txt", "--size", "S"])
+        check("v1-table-loads",
+              (v1.get("pick") or {}).get("agent") == "codex", str(v1)[:150])
+    except OSError as e:
+        check("v1-table-loads", False, str(e)[:100])
     eff = t.get("effort", {})
     check("effort-SM-opencode-model",
           eff.get("S", {}).get("opencode") == r5.get("model") and
@@ -111,13 +145,19 @@ def main():
     base = ["--spec", "/tmp/verify-spec.txt", "--claude-wk", "1",
             "--claude-h5", "1", "--codex-wk", "1", "--codex-h5", "1"]
     s = run_route(tbl, base + ["--size", "S"])
-    check("smoke-S-picks-R3",
-          (s.get("pick") or {}).get("row") == "R3", str(s)[:150])
+    check("smoke-S-picks-codex",
+          (s.get("pick") or {}).get("alias") == "R3", str(s)[:150])
     check("smoke-candidates-ranked",
           isinstance(s.get("candidates"), list) and len(s.get("candidates", [])) >= 2)
     x = run_route(tbl, base[:-4] + ["--claude-wk", "0.01", "--claude-h5", "0.01",
+                                   "--provider-down", "cursor-agent",
                                    "--size", "XL"])
-    check("smoke-XL-reserve-defers", x.get("action") == "defer", str(x)[:150])
+    check("smoke-XL-nothing-defers", x.get("action") == "defer", str(x)[:150])
+    xo = run_route(tbl, base[:-4] + ["--claude-wk", "0.01", "--claude-h5", "0.01",
+                                     "--size", "XL"])
+    check("smoke-XL-overflow-cursor",
+          (xo.get("pick") or {}).get("row") == "cursor-agent:claude-opus-5-5-max",
+          str(xo)[:200])
     try:
         g = json.load(open(GOLDEN))
         tasks = g["tasks"] if isinstance(g, dict) else g
