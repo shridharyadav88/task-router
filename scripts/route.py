@@ -175,6 +175,9 @@ def main():
         return agent not in down
 
     def actionable(row, agent):
+        if ("sizes" in table["rows"][row]
+                and a.size not in table["rows"][row]["sizes"]):
+            return False
         if row == "R3" and not codex_ok:
             return False
         if agent == "cursor-agent" and (not a.cursor_model or a.cursor_mult > 2):
@@ -222,6 +225,13 @@ def main():
         if agent in avoid:
             entry["why"] = "spread_avoided"
             rejected.append({"row": row, "agent": agent, "why": "spread_avoided"})
+            ranked.append(entry)
+            continue
+        if ("sizes" in table["rows"][row]
+                and final_size not in table["rows"][row]["sizes"]):
+            entry["why"] = "not_eligible_for_size"
+            rejected.append({"row": row, "agent": agent,
+                             "why": "not_eligible_for_size"})
             ranked.append(entry)
             continue
         if agent == "cursor-agent":
@@ -299,7 +309,10 @@ def main():
         if row in seen or table["rows"][row].get("worker") is False:
             continue
         effort = table["effort"][a.size].get(agent)
-        if agent == "cursor-agent" and (not a.cursor_model or a.cursor_mult > 2):
+        if ("sizes" in table["rows"][row]
+                and a.size not in table["rows"][row]["sizes"]):
+            why = "not_eligible_for_size"
+        elif agent == "cursor-agent" and (not a.cursor_model or a.cursor_mult > 2):
             why = "model_not_pinned" if not a.cursor_model else "multiplier>2x"
         elif row == "R3" and not codex_ok:
             why = "no_index_row"
