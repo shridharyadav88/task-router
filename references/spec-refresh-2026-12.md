@@ -15,7 +15,7 @@ Publish routing-table v2026-12 with every pool measured or dated, codex default 
 
 ## Testing decisions
 - verify_table.py = the test (external behavior: table contents), stdlib only.
-- Golden-30: `route.py` run with measured quotas; agreement vs golden-set-30 expected picks ≥90%.
+- Golden-30: `route.py` run with measured quotas; agreement vs golden-set.json expected picks ≥90%.
 - Prior art: existing script goldens (row 11).
 
 ## Out of scope
