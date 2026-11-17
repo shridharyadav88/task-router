@@ -323,6 +323,12 @@ def main():
                                  "why": "pool_flagged_down"})
                 ranked.append(entry)
                 continue
+            if pool == "cursor" and a.cursor_frac is not None and state(a.cursor_frac) == "RESERVE":
+                entry["why"] = "quota_reserve"
+                rejected.append({"row": row, "agent": agent,
+                                 "why": "quota_reserve"})
+                ranked.append(entry)
+                continue
         effort = table["effort"][a.size].get(agent)
         if effort is None:
             why = ("not_eligible_for_XL" if a.size == "XL"

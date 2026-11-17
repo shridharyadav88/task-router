@@ -87,6 +87,14 @@ def main():
     check("tripwire-direct-before-metered",
           all(_direct_before_cursor(chains.get(s, []), rows) for s in ("S", "M", "L")),
           "cursor-pool row precedes a claude/codex-pool row")
+    cf = run_route(tbl, ["--spec", "/tmp/verify-spec.txt", "--claude-wk", "1",
+                          "--claude-h5", "1", "--codex-wk", "1", "--codex-h5", "1",
+                          "--cursor-frac", "0.01", "--size", "S"])
+    check("cursor-frac-RESERVE-skips",
+          (cf.get("pick") or {}).get("alias") == "R3" and
+          all(c.get("status") != "picked" or c.get("agent") != "cursor-agent"
+              for c in cf.get("candidates", [])),
+          str(cf)[:200])
     check("no-audit_line-in-table", "audit_line" not in t)
     try:
         au = json.load(open(os.path.join(HERE, "..", "references",

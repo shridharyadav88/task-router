@@ -269,6 +269,7 @@
    "muse",
    "cursor"
   ],
-  "note": "S/M/L: direct-pool rows precede metered-pool rows (tripwire-gated); XL allows model-first fallback."
+  "note": "S/M/L: direct-pool rows precede metered-pool rows (tripwire-gated); XL allows model-first fallback.",
+  "muse_exemption": "muse (api-metered) keeps its pre-existing chain position by the compat guard; tripwire gates cursor-pool rows only"
  }
 }
