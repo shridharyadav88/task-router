@@ -22,7 +22,18 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROUTE_PY = os.path.join(HERE, "route.py")
-TIMEOUT_MIN = {"S": 10, "M": 20, "L": 40, "XL": 90}
+TABLE_JSON = os.path.join(HERE, "..", "references", "routing-table.json")
+
+
+def _table_timeouts():
+    try:
+        with open(TABLE_JSON) as f:
+            return json.load(f).get("timeouts_min", {})
+    except (OSError, ValueError):
+        return {}
+
+
+TIMEOUT_MIN = _table_timeouts() or {"S": 10, "M": 20, "L": 40, "XL": 90}
 TURNS = {"S": 5, "M": 10, "L": 15, "XL": 20}
 DIFF_CAP = {"S": (150, 5), "M": (400, 12), "L": (1000, 25), "XL": (10 ** 9, 10 ** 9)}
 EST_BURN = {"S": 0.10, "M": 0.30, "L": 0.80, "XL": 1.50}
@@ -106,6 +117,10 @@ def worker_cmd(pick, prompt, budget_left, timeout_s, codex_sandbox):
         eff = {"low": "low", "medium": "medium", "high": "high", "max": "xhigh"}[effort]
         return (["codex", "exec", "--sandbox", codex_sandbox, "--json",
                  "-c", 'model_reasoning_effort="%s"' % eff, prompt], timeout_s, "codex")
+    if ag == "muse":
+        return (["muse", "exec", prompt], timeout_s, "muse")
+    if ag == "opencode":
+        return (["opencode", "run", prompt, "--model", model], timeout_s, "opencode")
     return (["cursor-agent", "--model", model, "-p", prompt], timeout_s, "cursor")
 
 
@@ -214,10 +229,18 @@ def main():
     except ValueError:
         print(json.dumps({"action": "error", "why": "router failed", "stderr": r.stderr[-500:]}))
         return 1
-    if "action" in pick_out:
+    if "pick" not in pick_out:
         print(json.dumps(pick_out, indent=2))
         return 2
     pick, size = pick_out["pick"], a.size
+    # ranked fallback: first same-size fallback row (different provider) gets
+    # attempt 2 from base; size-up escalation gets attempt 3 at most.
+    fb = next((c for c in pick_out.get("candidates", [])
+               if c.get("status") == "fallback"
+               and c.get("agent") != pick["agent"]), None)
+    fb_pick = ({"agent": fb["agent"], "model": fb["model"],
+                "effort": fb["effort"], "row": fb["row"]} if fb else None)
+    sized_up = False
     spent, attempts = 0.0, []
     wt_base = tempfile.mkdtemp(prefix="trex-base-")
     try:
@@ -239,9 +262,9 @@ def main():
         # attempt loop (max 3 launches incl transient)
         cur_size, cur_pick = size, pick
         last_why, last_tail = [], ""
-        for n in (1, 2):
-            if n == 2:
-                # attempt 2 restarts from base; failure arrives only as a 4KB digest
+        for n in (1, 2, 3):
+            if n > 1:
+                # attempts 2+ restart from base; failure arrives only as a 4KB digest
                 run(["git", "reset", "--hard", "HEAD"], wt_base, 120)
                 run(["git", "clean", "-fd"], wt_base, 120)
                 with open(os.path.join(wt_base, "DIGEST.md"), "w") as f:
@@ -262,11 +285,16 @@ def main():
                 return done(False, spec_sha, a, spent, attempts, "human")
             if spent >= a.budget:
                 return done(False, spec_sha, a, spent, attempts, "budget_ceiling")
-            if n == 2:
+            if n == 1 and fb_pick is not None:
+                cur_size, cur_pick = size, fb_pick
+                fb_pick = None
+                continue
+            if n == 3 or sized_up:
                 break
             cur_size, cur_pick = escalate(a, cur_size, cur_pick, spent, spec_sha)
             if cur_pick is None:
                 return done(False, spec_sha, a, spent, attempts, "no_escalation_row")
+            sized_up = True
         return done(False, spec_sha, a, spent, attempts, "human")
     finally:
         run(["git", "worktree", "remove", "--force", wt_base], repo, 120)
@@ -284,7 +312,7 @@ def escalate(a, size, pick, spent, spec_sha):
     r = subprocess.run(rcmd, capture_output=True, text=True)
     try:
         d = json.loads(r.stdout)
-        if "action" in d:
+        if "pick" not in d:
             return ns, None
         return ns, d["pick"]
     except ValueError:

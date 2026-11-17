@@ -39,7 +39,7 @@ Within ~3 index points = tie, cheapest quota wins. XL always goes top row. Score
 
 ## Calibration
 
-30 labeled golden tasks (`references/golden-set-30.md`), both engines scored on all of them (`references/calibration.md`):
+30 labeled golden tasks (`references/golden-set.json`), both engines scored on all of them (`references/calibration.md`):
 
 | Engine | Vague gate | Risk theta (0-3 scale) | Agreement |
 |---|---|---|---|
@@ -76,8 +76,8 @@ Batch routing with spread: add `--avoid-agent <id>` for providers already carryi
 
 ```
 SKILL.md                  # the skill: triggers, procedure, gates, gotchas
-references/routing-table.md   # index snapshot, quota states, spread rule
-references/golden-set-30.md   # 30 calibrated tasks
+references/routing-table.json   # rows, chains, effort, bars, quotas, timeouts
+references/golden-set.json      # 30 calibrated tasks
 references/executor.md        # v1 pipeline spec
 references/calibration.md     # fits, misses, design changes
 scripts/route.py          # recommend-only lookup

@@ -38,7 +38,7 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 
 ## Benchmark Rule (never mix the two indices)
 
-- Route ONLY on `(agent, model, effort)` rows from the AA Coding Agents Index snapshot 2026-11-10 (`references/routing-table.md`): R1 claude + Opus 5.5 Max 61.7, R2 claude + Sonnet 5.5 Max 59.3, R3 codex default ~54 (downgrade codex to fallback-only if its default has no row).
+- Route ONLY on `(agent, model, effort)` rows from `references/routing-table.json` (table_v 2026-12; AA Coding Agents Index snapshot 2026-11-10): R1 claude + Opus 5.5 Max 61.7, R2 claude + Sonnet 5.5 Max 59.3, R3 codex default ~54, R4 muse, R5 opencode free, CURSOR pinned-last. Edit the JSON to change routing — never the script; `route.py --self-test` proves the table loads.
 - Within ~3 pts = tie, cheapest quota wins. Exception (Opus-grill decision): XL always goes R1.
 - The AA Coding Index (model-only: Fable 5.1 81.6, Opus 5 78.0) is context only. Fable is #1 model but #8 harness: score the harness, not the model.
 
@@ -60,13 +60,14 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 ## Failure Rules
 
 - 429/quota error marks that provider RESERVE for its window; repick cross-provider (claude-chat == claude-code pool, chatgpt == codex pool; never retry same pool).
-- Max 1 escalation per task (different provider or +1 size); 2nd failure returns `human`.
+- Attempt 2 is the same-size ranked fallback from base; at most one size-up escalation after that; 2nd failure returns `human`.
 - Weekly under 20% = RESERVE (S tasks only); UNKNOWN = LOW; XL with no headroom returns `defer`.
 
 ## Verification
 
 - `terminal(command="python3 <skill>/scripts/route.py --spec <f> --size M --log <tmp>")` prints JSON with agent/model/effort + row; the tmp log holds a valid JSON line.
 - Smoke: golden L3 enters M and exits L (risk bump); the vague-XL1 variant exits `clarify`.
+- `scripts/verify_table.py` checks `references/routing-table.json` (schema, chains, effort coverage, golden parity smoke) — always run it with workdir set to the skill directory (e.g. `python3 scripts/verify_table.py` from there). An absolute script path from another cwd raises FileNotFoundError and proves nothing about the table.
 
 ## Executor v1 (script-orchestrated, zero model cost)
 
@@ -82,7 +83,7 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 - Claude Code: skill auto-loads; or run the script via `terminal` with the skill path.
 - Cursor: `cursor-agent -p "Follow SKILL.md at <skill-path>, recommend only for SPEC"` with `--model` pinned to an explicit id.
 - Codex: `codex exec "Follow <skill-path>/SKILL.md; recommend only, no edits"` (no `--model` on this plan).
-- Opencode/Copilot (staged): paste SKILL.md + `references/routing-table.md`; run the script with system python3.
+- Opencode/Copilot (staged): paste SKILL.md + `references/routing-table.json`; run the script with system python3.
 
 ## Gotchas
 
@@ -91,6 +92,7 @@ Quota pools are shared and weekly-first: Claude Pro 5hr (>=5x Free) + weekly all
 - local-llm at ~5 tok/s cannot hold a diff; S code still goes to codex/claude, never local.
 - One agent starting another CLI burns 2 quotas and drops context: v0 recommends, the caller executes, prefer `--self-agent` on ties.
 - Never point `--log` at scratch/ (24h prune eats the audit trail — lost Nov-16 hill-climb run's decisions.jsonl + elephant.log). The default `~/.local/state/task-router/decisions.jsonl` is the durable ledger; overrides must also be durable paths.
+- The audit line shape is a contract: the ledger has been one JSON dict per line since day one and downstream reads assume its keys. Before changing what the scripts log, read the ledger's first line and match its shape — a silent format change corrupts every historical parse.
 - `jev_evaluate` score questions reject bare `type: score` — the schema needs an ordered `criteria` list of level descriptions (lowest first, e.g. `["none","low","medium","high"]`). Choice questions take a `criteria` map of option -> description. Noul takes neither. A schema error is a question-shape bug, not a tool outage: fix the shape once and retry.
 - Elephant-9b `answers.<id>.noul` is a P(true) float, not a boolean — gate numerically (vague > 0.5 = clarify, never guess XL). Identity checks against `true`/`false` fail while the model answers correctly.
 - The OpenRouter key lives in Bitwarden Secrets (`bws secret get` by key name), not in `~/.hermes/.env` on a fresh setup. If `size.py` reports `no OPENROUTER_API_KEY`, fetch it via `bws` and store it in `~/.hermes/.env` (keys-only listing to verify, never print the value).
