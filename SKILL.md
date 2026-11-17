@@ -27,7 +27,7 @@ Recommend-only mode stays available: `scripts/route.py` alone answers Q4-safe (n
 | Agent | CLI | Auth | Models you can use |
 |---|---|---|---|
 | claude-code 2.1.322 | `claude` | Pro, pool shared chat+Code | `--model opus` = Opus 5.5 (proven this session), `sonnet`, `haiku`; `--effort low/medium/high/xhigh/max` |
-| cursor-agent 2026.11.05 | `cursor-agent` | shridhar@counselio.ai (X-sub) | 150+ ids via `--list-models`; pin exact id, never `auto`; Max-suffix costs more |
+| cursor-agent 2026.11.05 | `cursor-agent` | work login (X-sub) | 150+ ids via `--list-models`; pin exact id, never `auto`; Max-suffix costs more |
 | codex 0.167.0 | `codex` | ChatGPT login | DEFAULT model only: omit `--model` (named models rejected on this plan). Resolve the default non-interactively: the priority:1 entry of `codex debug models` wins unless a `^model` key exists in ~/.codex/config.toml — an absent key means the built-in default applies. |
 | local-llm | tracked wrapper | free | `coder-3b-q8` default, `coder-7b-q6k` harder; ~5 tok/s, 100-token cap: non-code chores only, never on a fallback path |
 | opencode 2.3.0 | `opencode` (`~/.opencode/bin`) | free tier, no login needed | `opencode/<model>-free` models incl. deepseek; login only for paid providers |

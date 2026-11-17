@@ -65,7 +65,7 @@ Ledger (measured 2026-11-16):
 ## Probe evidence (ran 2026-11-16)
 
 - `claude --version` = 2.1.322; `claude -p /usage` = session 2%, weekly 0%/0% (7d 160 req/22 sess).
-- `cursor-agent --version` = 2026.11.13; logged in shridhar@counselio.ai; dashboard screenshot = LEGACY Pro $20/mo, pools 1%/1%/0%. Docs sweep 2026-11-16 (cursor.com/docs/models-and-pricing, usage-limits, stackfreeks, planyield): legacy = two monthly pools; third-party at API list price; Max +20%; NO published per-model multiplier table — closed as document-with-API-ladder, not unknowable.
+- `cursor-agent --version` = 2026.11.13; logged in (work account); dashboard screenshot = LEGACY Pro $20/mo, pools 1%/1%/0%. Docs sweep 2026-11-16 (cursor.com/docs/models-and-pricing, usage-limits, stackfreeks, planyield): legacy = two monthly pools; third-party at API list price; Max +20%; NO published per-model multiplier table — closed as document-with-API-ladder, not unknowable.
 - `codex --version` = 0.167.0 (0.169.0 available, not installed); ChatGPT login; `codex debug models` priority:1 = gpt-6-chat-thinking; config sets no model key; exec OK (3.5k tokens, model-silent output).
 - `opencode --version` = v2.3.0 at ~/.opencode/bin (v1 removed); free probe OK login-free; 13+ free models; local ollama/coder-7b-q6k visible in catalog. Free-tier limits: unpublished shared daily quota, 200K ctx, throttled TPM, resets daily (vendor table via screenshot 2026-11-16).
 - `muse` = 1.4.11; `model-profile show muse-spark-1.3` OK (reasoning high); headless exec OK.
