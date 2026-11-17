@@ -7,7 +7,7 @@ Router quotas are stale (est rows, UNKNOWN pools); codex default unmapped; no mu
 Publish routing-table v2026-12 with every pool measured or dated, codex default named, new muse + opencode + openrouter rows, $10/point cap. No logic changes to route.py/size.py except TABLE_V bump.
 
 ## Seams (agreed, frozen)
-- `references/routing-table.md` (the table; sections: usable rows, size bars, effort map, lookup, quota states, subscription limits, probe evidence, local-llm boundary, spread rule, audit line).
+- `references/routing-table.json` (the table; sections: usable rows, size bars, effort map, lookup, quota states, subscription limits, probe evidence, local-llm boundary, spread rule, audit line).
 - `scripts/route.py` TABLE_V constant only (2026-11-10 → 2026-12). INDEX scores untouched (never re-rank by hand).
 
 ## Done-criterion (executable, author-written)

@@ -27,14 +27,23 @@ AGENT_POOL = {"claude-code": "claude", "codex": "codex", "muse": "muse",
               "opencode": "opencode", "cursor-agent": "cursor"}
 
 
+_QRES, _QLOW = 0.2, 0.5  # overridden from the table's quota block
+
+
 def state(v):
     if v is None or v < 0:
         return "LOW"  # UNKNOWN counts as LOW: actionable, never a skip
-    if v < 0.2:
+    if v < _QRES:
         return "RESERVE"
-    if v < 0.5:
+    if v < _QLOW:
         return "LOW"
     return "OK"
+
+
+def set_thresholds(table):
+    global _QRES, _QLOW
+    _QRES = table["quota"]["reserve_below"]
+    _QLOW = table["quota"]["low_below"]
 
 
 def load_table(path):
@@ -107,6 +116,7 @@ def main():
         print(json.dumps({"action": "error",
                           "why": "bad_table: " + str(e)[:150]}, indent=2))
         return 1
+    set_thresholds(table)
     down = set(a.provider_down or [])
     quota_nums = {"claude": {"wk": a.claude_wk, "h5": a.claude_h5},
                   "codex": {"wk": a.codex_wk, "h5": a.codex_h5}}
@@ -117,6 +127,11 @@ def main():
 
     if a.self_test:
         return self_test(table, a)
+
+    if not a.size:
+        print(json.dumps({"action": "error", "why": "size_required",
+                          "note": "--size S|M|L|XL is required"}, indent=2))
+        return 2
 
     if a.noul:
         print(json.dumps({"action": "clarify", "final_size": None,
@@ -148,11 +163,15 @@ def main():
         quota[ag] = {"state": "RESERVE(flagged_down)"
                      if ag in down else "OK", "src": a.quota_src}
 
-    def pool_ok(agent):
+    def pool_ok(agent, size):
         pool = AGENT_POOL[agent]
         if pool in POOL_NUMERIC:
             q = quota_nums[pool]
-            return state(q["wk"]) != "RESERVE" and state(q["h5"]) != "RESERVE"
+            if state(q["h5"]) == "RESERVE":
+                return False
+            if state(q["wk"]) == "RESERVE" and size != "S":
+                return False
+            return True
         return agent not in down
 
     def actionable(row, agent):
@@ -288,16 +307,25 @@ def main():
             why = "not_eligible_for_size"
         elif agent in avoid:
             why = "spread_avoided"
-        elif not pool_ok(agent):
+        elif not pool_ok(agent, a.size):
             why = "quota_reserve"
         else:
             why = None
         fe = {"row": row, "agent": agent, "status":
               "fallback" if why is None else "skipped", "why": why}
         if why is None:
-            fe["effort"] = effort
-            fe["model"] = (effort if agent == "opencode"
-                           else table["rows"][row]["model"])
+            feff = effort
+            pool = AGENT_POOL[agent]
+            if pool in POOL_NUMERIC and state(quota_nums[pool]["h5"]) == "LOW" \
+                    and not (a.size == "XL" and row == "R1"):
+                feff = table["downgrade"].get(feff, feff)
+            fe["effort"] = feff
+            if agent == "cursor-agent":
+                fe["model"] = a.cursor_model
+            elif agent == "opencode":
+                fe["model"] = feff
+            else:
+                fe["model"] = table["rows"][row]["model"]
         ranked.append(fe)
 
     if pick is None:
@@ -309,7 +337,7 @@ def main():
     if a.self_agent and a.self_agent != pick["agent"]:
         for row, agent in chain_agents:
             if agent == a.self_agent and row != "CURSOR":
-                if pool_ok(agent) and not (row == "R3" and not codex_ok):
+                if pool_ok(agent, a.size) and not (row == "R3" and not codex_ok):
                     rejected.append({"row": pick["row"], "agent": pick["agent"],
                                      "why": "self_agent_preferred"})
                     em = table["effort"][a.size].get(agent)
