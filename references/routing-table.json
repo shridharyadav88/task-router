@@ -9,30 +9,34 @@
  "budget_usd_per_task": 2.0,
  "chains": {
   "L": [
-   "R2",
-   "R3",
-   "CURSOR",
-   "R4"
+   "claude-code:sonnet",
+   "codex:gpt-6-chat-thinking",
+   "cursor-agent:claude-opus-5-5-high",
+   "cursor-agent:pinned",
+   "muse:muse-spark-1.3"
   ],
   "M": [
-   "R3",
-   "R2",
-   "R4",
-   "R7",
-   "R5",
-   "CURSOR"
+   "codex:gpt-6-chat-thinking",
+   "claude-code:sonnet",
+   "claude-code:haiku",
+   "cursor-agent:claude-opus-5-5-medium",
+   "muse:muse-spark-1.3",
+   "opencode:deepseek-v4.1-flash-free",
+   "cursor-agent:pinned"
   ],
   "S": [
-   "R3",
-   "R4",
-   "R7",
-   "R5",
-   "R2",
-   "CURSOR"
+   "codex:gpt-6-chat-thinking",
+   "muse:muse-spark-1.3",
+   "claude-code:haiku",
+   "opencode:deepseek-v4.1-flash-free",
+   "claude-code:sonnet",
+   "cursor-agent:claude-opus-5-5-low",
+   "cursor-agent:pinned"
   ],
   "XL": [
-   "R1",
-   "R2"
+   "claude-code:opus",
+   "cursor-agent:claude-opus-5-5-max",
+   "claude-code:sonnet"
   ]
  },
  "cmd": {
@@ -73,7 +77,7 @@
   "XL": {
    "claude-code": "max",
    "codex": null,
-   "cursor-agent": null,
+   "cursor-agent": "max",
    "muse": "max",
    "opencode": null
   }
@@ -87,42 +91,57 @@
   "xl_no_headroom": "defer"
  },
  "rows": {
-  "CURSOR": {
+  "cursor-agent:pinned": {
    "agent": "cursor-agent",
    "index": null,
    "label": "pinned model id, never auto",
    "model": "pinned",
-   "pool": "cursor"
+   "pool": "cursor",
+   "alias": "CURSOR",
+   "id": "cursor-agent:pinned",
+   "sizes": [
+    "S",
+    "M",
+    "L"
+   ]
   },
-  "R1": {
+  "claude-code:opus": {
    "agent": "claude-code",
    "index": 61.7,
    "label": "Opus 5.5",
    "model": "opus",
-   "pool": "claude"
+   "pool": "claude",
+   "alias": "R1",
+   "id": "claude-code:opus"
   },
-  "R2": {
+  "claude-code:sonnet": {
    "agent": "claude-code",
    "index": 59.3,
    "label": "Sonnet 5.5",
    "model": "sonnet",
-   "pool": "claude"
+   "pool": "claude",
+   "alias": "R2",
+   "id": "claude-code:sonnet"
   },
-  "R3": {
+  "codex:gpt-6-chat-thinking": {
    "agent": "codex",
    "index": 54.4,
    "label": "ChatGPT gpt-6-chat-thinking (plan default, -m pinned)",
    "model": "gpt-6-chat-thinking",
-   "pool": "codex"
+   "pool": "codex",
+   "alias": "R3",
+   "id": "codex:gpt-6-chat-thinking"
   },
-  "R4": {
+  "muse:muse-spark-1.3": {
    "agent": "muse",
    "index": null,
    "label": "Muse Spark (unindexed: S/M fallback only, never sole XL)",
    "model": "muse-spark-1.3",
-   "pool": "muse"
+   "pool": "muse",
+   "alias": "R4",
+   "id": "muse:muse-spark-1.3"
   },
-  "R5": {
+  "opencode:deepseek-v4.1-flash-free": {
    "agent": "opencode",
    "index": null,
    "label": "opencode free deepseek (S/M only)",
@@ -131,17 +150,21 @@
    "sizes": [
     "S",
     "M"
-   ]
+   ],
+   "alias": "R5",
+   "id": "opencode:deepseek-v4.1-flash-free"
   },
-  "R6": {
+  "openrouter:elephant-1": {
    "agent": "openrouter",
    "index": null,
    "label": "elephant-1 sizing + paid fallback models ($ caps, not a worker row)",
    "model": "baseten/elephant-1-20261021",
    "pool": "openrouter",
-   "worker": false
+   "worker": false,
+   "alias": "R6",
+   "id": "openrouter:elephant-1"
   },
-  "R7": {
+  "claude-code:haiku": {
    "agent": "claude-code",
    "model": "haiku",
    "label": "Haiku (unindexed: S/M fallback only, never sole XL)",
@@ -150,6 +173,56 @@
    "sizes": [
     "S",
     "M"
+   ],
+   "alias": "R7",
+   "id": "claude-code:haiku"
+  },
+  "cursor-agent:claude-opus-5-5-low": {
+   "alias": null,
+   "id": "cursor-agent:claude-opus-5-5-low",
+   "agent": "cursor-agent",
+   "model": "claude-opus-5-5-low",
+   "label": "Opus 5.5 via Cursor (metered fallback)",
+   "index": null,
+   "pool": "cursor",
+   "sizes": [
+    "S"
+   ]
+  },
+  "cursor-agent:claude-opus-5-5-medium": {
+   "alias": null,
+   "id": "cursor-agent:claude-opus-5-5-medium",
+   "agent": "cursor-agent",
+   "model": "claude-opus-5-5-medium",
+   "label": "Opus 5.5 via Cursor (metered fallback)",
+   "index": null,
+   "pool": "cursor",
+   "sizes": [
+    "M"
+   ]
+  },
+  "cursor-agent:claude-opus-5-5-high": {
+   "alias": null,
+   "id": "cursor-agent:claude-opus-5-5-high",
+   "agent": "cursor-agent",
+   "model": "claude-opus-5-5-high",
+   "label": "Opus 5.5 via Cursor (metered fallback)",
+   "index": null,
+   "pool": "cursor",
+   "sizes": [
+    "L"
+   ]
+  },
+  "cursor-agent:claude-opus-5-5-max": {
+   "alias": null,
+   "id": "cursor-agent:claude-opus-5-5-max",
+   "agent": "cursor-agent",
+   "model": "claude-opus-5-5-max",
+   "label": "Opus 5.5 via Cursor (metered fallback)",
+   "index": null,
+   "pool": "cursor",
+   "sizes": [
+    "XL"
    ]
   }
  },
@@ -163,11 +236,11 @@
   "XL": 90
  },
  "warnings": {
-  "R2": {
-   "XL": "XL_degraded"
+  "codex:gpt-6-chat-thinking": {
+   "L": "below_L_bar"
   },
-  "R3": {
-   "L": "R3_below_L_bar"
+  "claude-code:sonnet": {
+   "XL": "XL_degraded"
   }
  },
  "xl_always_top_row": true,
@@ -182,5 +255,20 @@
    "gpt-5.6-luna",
    "codex-auto-review"
   ]
+ },
+ "table_format": 2,
+ "cost_tiers": {
+  "free": [
+   "opencode"
+  ],
+  "direct": [
+   "claude",
+   "codex"
+  ],
+  "metered": [
+   "muse",
+   "cursor"
+  ],
+  "note": "S/M/L: direct-pool rows precede metered-pool rows (tripwire-gated); XL allows model-first fallback."
  }
 }

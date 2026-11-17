@@ -1,0 +1,89 @@
+{
+ "table_v": "2026-11-10-test",
+ "bars": {
+  "S": 50,
+  "M": 50,
+  "L": 58.7,
+  "XL": 61.7
+ },
+ "rows": {
+  "R1": {
+   "agent": "claude-code",
+   "model": "opus",
+   "pool": "claude"
+  },
+  "R3": {
+   "agent": "codex",
+   "model": "default",
+   "pool": "codex"
+  },
+  "CURSOR": {
+   "agent": "cursor-agent",
+   "model": "pinned",
+   "pool": "cursor"
+  }
+ },
+ "effort": {
+  "S": {
+   "claude-code": "low",
+   "codex": "low",
+   "cursor-agent": "low"
+  },
+  "M": {
+   "claude-code": "medium",
+   "codex": "medium",
+   "cursor-agent": "medium"
+  },
+  "L": {
+   "claude-code": "high",
+   "codex": "high",
+   "cursor-agent": "high"
+  },
+  "XL": {
+   "claude-code": "max",
+   "codex": null,
+   "cursor-agent": null
+  }
+ },
+ "chains": {
+  "S": [
+   "R3",
+   "R1",
+   "CURSOR"
+  ],
+  "M": [
+   "R3",
+   "R1",
+   "CURSOR"
+  ],
+  "L": [
+   "R1",
+   "R3",
+   "CURSOR"
+  ],
+  "XL": [
+   "R1"
+  ]
+ },
+ "quota": {
+  "low_below": 0.5,
+  "reserve_below": 0.2
+ },
+ "timeouts_min": {
+  "S": 10,
+  "M": 20,
+  "L": 40,
+  "XL": 90
+ },
+ "downgrade": {
+  "max": "high",
+  "high": "medium",
+  "medium": "low",
+  "low": "low"
+ },
+ "cmd": {
+  "claude-code": "claude --model {model} --effort {effort} -p x",
+  "codex": "codex exec x",
+  "cursor-agent": "cursor-agent --model {model} -p x"
+ }
+}

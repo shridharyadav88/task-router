@@ -73,6 +73,30 @@ def load_table(path):
                 raise ValueError("effort missing for %s/%s" % (sz, ag))
             if ag not in t["cmd"]:
                 raise ValueError("cmd template missing for %s" % ag)
+    return _normalize_table(t)
+
+
+def _normalize_table(t):
+    # v2 is canonical: rows keyed by composite harness:model id, chains use ids.
+    # v1 (R-id keyed rows) loads by synthesizing composite ids; alias = old key.
+    if t.get("table_format", 1) >= 2:
+        for rid, r in t["rows"].items():
+            r.setdefault("id", rid)
+        return t
+    amap = {}
+    new_rows = {}
+    for alias, r in t["rows"].items():
+        cid = r["agent"] + ":" + r["model"]
+        r["id"] = cid
+        r["alias"] = alias
+        new_rows[cid] = r
+        amap[alias] = cid
+    t["rows"] = new_rows
+    t["chains"] = {sz: [amap.get(x, x) for x in ch]
+                   for sz, ch in t["chains"].items()}
+    if "warnings" in t:
+        t["warnings"] = {amap.get(k, k): v for k, v in t["warnings"].items()}
+    t["table_format"] = 2
     return t
 
 
@@ -98,6 +122,8 @@ def main():
     p.add_argument("--avoid-agent", action="append", default=[],
                    help="spread rule: skip this provider if an alternative clears the bar")
     p.add_argument("--cursor-mult", type=float, default=-1.0)
+    p.add_argument("--cursor-frac", type=float, default=None,
+                   help="cursor pool fraction 0..1 (dashboard); omit = UNKNOWN-safe")
     p.add_argument("--provider-down", action="append", default=[],
                    help="presence-pool agent assumed exhausted (muse/opencode/cursor)")
     p.add_argument("--engine", default="jev", choices=["jev", "elephant"])
@@ -119,7 +145,8 @@ def main():
     set_thresholds(table)
     down = set(a.provider_down or [])
     quota_nums = {"claude": {"wk": a.claude_wk, "h5": a.claude_h5},
-                  "codex": {"wk": a.codex_wk, "h5": a.codex_h5}}
+                  "codex": {"wk": a.codex_wk, "h5": a.codex_h5},
+                  "cursor": {"frac": a.cursor_frac}}
     if "claude-code" in down or "claude" in down:
         quota_nums["claude"] = {"wk": 0.0, "h5": 0.0}
     if "codex" in down:
@@ -159,9 +186,17 @@ def main():
                              "src": a.quota_src},
              "codex": {"wk": quota_nums["codex"]["wk"],
                        "h5": quota_nums["codex"]["h5"], "src": a.quota_src}}
-    for ag in ("muse", "opencode", "cursor-agent"):
+    for ag in ("muse", "opencode"):
         quota[ag] = {"state": "RESERVE(flagged_down)"
                      if ag in down else "OK", "src": a.quota_src}
+    if a.cursor_frac is None:
+        quota["cursor-agent"] = {"state": "RESERVE(flagged_down)"
+                                 if "cursor-agent" in down else "OK",
+                                 "src": a.quota_src}
+    else:
+        quota["cursor-agent"] = {"frac": a.cursor_frac,
+                                 "state": state(a.cursor_frac),
+                                 "src": a.quota_src}
 
     def pool_ok(agent, size):
         pool = AGENT_POOL[agent]
@@ -172,16 +207,26 @@ def main():
             if state(q["wk"]) == "RESERVE" and size != "S":
                 return False
             return True
+        if pool == "cursor":
+            if a.cursor_frac is None:
+                return agent not in down
+            return state(a.cursor_frac) != "RESERVE"
         return agent not in down
+
+    def row_alias(row):
+        return table["rows"][row].get("alias")
 
     def actionable(row, agent):
         if ("sizes" in table["rows"][row]
                 and a.size not in table["rows"][row]["sizes"]):
             return False
-        if row == "R3" and not codex_ok:
+        if row_alias(row) == "R3" and not codex_ok:
             return False
-        if agent == "cursor-agent" and (not a.cursor_model or a.cursor_mult > 2):
-            return False
+        if agent == "cursor-agent":
+            if row_alias(row) == "CURSOR" and (not a.cursor_model or a.cursor_mult > 2):
+                return False
+            if a.cursor_frac is not None and state(a.cursor_frac) == "RESERVE":
+                return False
         if table["effort"][a.size].get(agent) is None:
             return False
         if agent in ("muse", "opencode") and agent in down:
@@ -206,9 +251,11 @@ def main():
     ranked = []
     warnings = list(warnings0)
 
-    if a.size == "XL" and state(quota_nums["claude"]["wk"]) == "RESERVE":
+    cursor_out = (("cursor-agent" in down) or
+                  (a.cursor_frac is not None and state(a.cursor_frac) == "RESERVE"))
+    if a.size == "XL" and state(quota_nums["claude"]["wk"]) == "RESERVE" and cursor_out:
         out = {"action": "defer", "final_size": "XL",
-               "why": "weekly headroom under 20% and XL cannot degrade twice",
+               "why": "no headroom on claude pool and cursor pool: XL cannot degrade twice",
                "spec_sha256": sha}
         print(json.dumps(out, indent=2))
         return 2
@@ -217,7 +264,7 @@ def main():
         if table["rows"][row].get("worker") is False:
             continue
         entry = {"row": row, "agent": agent, "status": "skipped", "why": None}
-        if row == "R3" and not codex_ok:
+        if row_alias(row) == "R3" and not codex_ok:
             entry["why"] = "no_index_row"
             rejected.append({"row": row, "agent": agent, "why": "no_index_row"})
             ranked.append(entry)
@@ -228,22 +275,22 @@ def main():
             ranked.append(entry)
             continue
         if ("sizes" in table["rows"][row]
-                and final_size not in table["rows"][row]["sizes"]):
+                and a.size not in table["rows"][row]["sizes"]):
             entry["why"] = "not_eligible_for_size"
             rejected.append({"row": row, "agent": agent,
                              "why": "not_eligible_for_size"})
             ranked.append(entry)
             continue
-        if agent == "cursor-agent":
+        if agent == "cursor-agent" and row_alias(row) == "CURSOR":
             if a.cursor_mult > 2:
                 entry["why"] = "multiplier>2x"
-                rejected.append({"row": "CURSOR", "agent": agent,
+                rejected.append({"row": row, "agent": agent,
                                  "why": "multiplier>2x"})
                 ranked.append(entry)
                 continue
             if not a.cursor_model:
                 entry["why"] = "model_not_pinned"
-                rejected.append({"row": "CURSOR", "agent": agent,
+                rejected.append({"row": row, "agent": agent,
                                  "why": "model_not_pinned"})
                 ranked.append(entry)
                 continue
@@ -251,7 +298,7 @@ def main():
                 warnings.append("cursor_multiplier_unmeasured")
             effort = {"S": "low", "M": "medium", "L": "high"}[a.size]
             pick = {"agent": agent, "model": a.cursor_model, "effort": effort,
-                    "row": "CURSOR", "emergency": True}
+                    "row": row, "alias": "CURSOR", "emergency": True}
             entry.update(status="picked", effort=effort)
             ranked.append(entry)
             break
@@ -286,7 +333,7 @@ def main():
             continue
         if pool in POOL_NUMERIC:
             if state(quota_nums[pool]["h5"]) == "LOW" and not (
-                    a.size == "XL" and row == "R1"):
+                    a.size == "XL" and row_alias(row) == "R1"):
                 effort = table["downgrade"].get(effort, effort)
                 warnings.append("%s_h5_LOW_downgraded_to_%s" % (agent, effort))
         if agent == "opencode":
@@ -294,7 +341,7 @@ def main():
         else:
             model = table["rows"][row]["model"]
         entry_pick = {"agent": agent, "model": model, "effort": effort,
-                      "row": row}
+                      "row": row, "alias": row_alias(row)}
         for rid2, w in table.get("warnings", {}).items():
             if rid2 == row and a.size in w:
                 warnings.append(w[a.size])
@@ -312,9 +359,9 @@ def main():
         if ("sizes" in table["rows"][row]
                 and a.size not in table["rows"][row]["sizes"]):
             why = "not_eligible_for_size"
-        elif agent == "cursor-agent" and (not a.cursor_model or a.cursor_mult > 2):
+        elif agent == "cursor-agent" and row_alias(row) == "CURSOR" and (not a.cursor_model or a.cursor_mult > 2):
             why = "model_not_pinned" if not a.cursor_model else "multiplier>2x"
-        elif row == "R3" and not codex_ok:
+        elif row_alias(row) == "R3" and not codex_ok:
             why = "no_index_row"
         elif effort is None:
             why = "not_eligible_for_size"
@@ -330,11 +377,12 @@ def main():
             feff = effort
             pool = AGENT_POOL[agent]
             if pool in POOL_NUMERIC and state(quota_nums[pool]["h5"]) == "LOW" \
-                    and not (a.size == "XL" and row == "R1"):
+                    and not (a.size == "XL" and row_alias(row) == "R1"):
                 feff = table["downgrade"].get(feff, feff)
             fe["effort"] = feff
             if agent == "cursor-agent":
-                fe["model"] = a.cursor_model
+                fe["model"] = (a.cursor_model if row_alias(row) == "CURSOR"
+                               else table["rows"][row]["model"])
             elif agent == "opencode":
                 fe["model"] = feff
             else:
@@ -349,8 +397,8 @@ def main():
 
     if a.self_agent and a.self_agent != pick["agent"]:
         for row, agent in chain_agents:
-            if agent == a.self_agent and row != "CURSOR":
-                if pool_ok(agent, a.size) and not (row == "R3" and not codex_ok):
+            if agent == a.self_agent and row_alias(row) != "CURSOR":
+                if pool_ok(agent, a.size) and not (row_alias(row) == "R3" and not codex_ok):
                     rejected.append({"row": pick["row"], "agent": pick["agent"],
                                      "why": "self_agent_preferred"})
                     em = table["effort"][a.size].get(agent)
@@ -413,7 +461,7 @@ def self_test(table, a):
     r = subprocess.run(base + ["--size", "S"], capture_output=True, text=True)
     try:
         d = json.loads(r.stdout)
-        if (d.get("pick") or {}).get("row") != "R3":
+        if (d.get("pick") or {}).get("alias") != "R3":
             errs.append("S smoke did not pick R3: " + r.stdout[:120])
     except ValueError:
         errs.append("S smoke not JSON")
