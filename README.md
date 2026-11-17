@@ -2,7 +2,17 @@
 
 Recommend-only router + script-orchestrated executor that sends each coding task to the cheapest capable agent — sized by a decision model, picked from a fixed lookup, verified by tests. The orchestrator is a stdlib script: zero model cost, never a live supervisor session, so nested agents can't burn two quotas at once.
 
-Built for one human's subscription reality (Claude Pro + Cursor X-sub + ChatGPT-Codex + free local LLM), but the table generalizes: swap in your own `(agent, model, effort)` rows and quota pools.
+The table generalizes: swap in your own `(agent, model, effort)` rows and quota pools.
+
+## Problem
+
+I pay for four AI coding subscriptions at once: Claude Pro, a Cursor plan, ChatGPT for Codex, plus a free local model. Each one meters usage differently. Five-hour windows here, weekly pools there, per-model multipliers somewhere else. Blow a weekly pool and you are locked out for days, including plain chat.
+
+Without routing, every task goes to whichever agent is already open. That is usually the most expensive one. A heavy week burns the same caps your interactive work needs to survive on.
+
+Chaining agents is worse. One paid agent supervising another paid CLI burns two subscriptions for a single task, and the outer session re-reads everything the inner one wrote as billable context. Two meters for one task, and the handoff drops half the reasoning in between.
+
+The router fixes both with one move: size each task with a cheap decision model, send it to the cheapest setup that can actually do it, and never nest paid sessions. A free script does any orchestrating. A paid model only ever works. It never watches.
 
 ## How it works
 
