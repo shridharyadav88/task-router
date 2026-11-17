@@ -6,13 +6,15 @@ The table generalizes: swap in your own `(agent, model, effort)` rows and quota 
 
 ## Problem
 
-I pay for four AI coding subscriptions at once: Claude Pro, a Cursor plan, ChatGPT for Codex, plus a free local model. Each one meters usage differently. Five-hour windows here, weekly pools there, per-model multipliers somewhere else. Blow a weekly pool and you are locked out for days, including plain chat.
+Most developers now pay for several AI coding subscriptions at once: a Claude plan, a Cursor plan, ChatGPT for Codex, plus whatever free tier or local model fills the gaps. Free tiers count too, and their limits are the tightest of all. Each plan meters usage differently. Five-hour windows here, weekly pools there, per-model multipliers somewhere else. Blow a weekly pool and you are locked out for days, including plain chat.
 
-Without routing, every task goes to whichever agent is already open. That is usually the most expensive one. A heavy week burns the same caps your interactive work needs to survive on.
+Without routing, every task goes to whichever agent is already open. That is usually the most expensive one. A heavy week burns the same caps interactive work needs to survive on.
 
 Chaining agents is worse. One paid agent supervising another paid CLI burns two subscriptions for a single task, and the outer session re-reads everything the inner one wrote as billable context. Two meters for one task, and the handoff drops half the reasoning in between.
 
-The router fixes both with one move: size each task with a cheap decision model, send it to the cheapest setup that can actually do it, and never nest paid sessions. A free script does any orchestrating. A paid model only ever works. It never watches.
+It helps single-agent setups too. Even with one subscription, the router matches each task to the right model for its complexity instead of running everything on the flagship. Simple tasks stop burning flagship tokens.
+
+The router fixes all of it with one move: size each task with a cheap decision model, send it to the cheapest setup that can actually do it, and never nest paid sessions. A free script does any orchestrating. A paid model only ever works. It never watches.
 
 ## How it works
 
