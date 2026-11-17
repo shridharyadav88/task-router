@@ -1,0 +1,1 @@
+{"bundle": "standard", "contract": "task-router-answers/1", "cursor_frac": null, "plan_notes": "claude pro + chatgpt-codex, cursor weekly", "prune_missing": true, "spend_ceiling": 2.0, "agents": ["claude-code", "codex", "cursor-agent"]}

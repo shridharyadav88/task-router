@@ -14,6 +14,9 @@ and the gate that catches a regression before launch. All gates run in
 | 6 | Setup wizard | clobbered hand-edited table | --write refuses without --force; --refresh never touches rows/chains | manual (confirm prompt); parity_check 30/30 after any table edit |
 | 7 | Audit schema | silent column drift breaks ledger readers | audit-schema.json v1 + bump rule; producers listed | audit-schema-valid + no-audit_line-in-table |
 | 8 | Golden compat | relabeled goldens mask regressions | no relabeling, ever; parity runs frozen goldens | parity_check 30/30 (bar: agreement >= 0.90) |
+| 9 | Pasted-prompt injection | a pasted agent transcript smuggles extra JSON/commands into answers | contract-pinned schema + script-side rejection; agent-must-not-write rule; --validate-only repair loop | answers-contract-valid + bad-fixture rc=2 probes |
+| 10 | Distribution trust | curl-pipe or tampered clone ships evil scripts | git-clone default; no bare curl-pipe (sha-pinned command documented as the only exception); per-file sha MATCH on install | install.sh sha verify + --check-only |
+| 11 | Stale-copy drift | old installs silently diverge from the repo | --check-only drift detection; README weekly cron hint | install.sh --check-only (manual/CI) |
 
 Cost-tier note: free (opencode) may precede metered rows; direct claude/codex pools
 precede metered cursor rows on S/M/L. Muse (api-metered, pre-existing chain position)

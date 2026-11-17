@@ -216,7 +216,12 @@ def main():
     def row_alias(row):
         return table["rows"][row].get("alias")
 
+    def row_disabled(row):
+        return bool(table["rows"][row].get("disabled"))
+
     def actionable(row, agent):
+        if row_disabled(row):
+            return False
         if ("sizes" in table["rows"][row]
                 and a.size not in table["rows"][row]["sizes"]):
             return False
@@ -264,6 +269,11 @@ def main():
         if table["rows"][row].get("worker") is False:
             continue
         entry = {"row": row, "agent": agent, "status": "skipped", "why": None}
+        if row_disabled(row):
+            entry["why"] = "disabled_by_setup"
+            rejected.append({"row": row, "agent": agent, "why": "disabled_by_setup"})
+            ranked.append(entry)
+            continue
         if row_alias(row) == "R3" and not codex_ok:
             entry["why"] = "no_index_row"
             rejected.append({"row": row, "agent": agent, "why": "no_index_row"})
@@ -362,7 +372,9 @@ def main():
         if row in seen or table["rows"][row].get("worker") is False:
             continue
         effort = table["effort"][a.size].get(agent)
-        if ("sizes" in table["rows"][row]
+        if row_disabled(row):
+            why = "disabled_by_setup"
+        elif ("sizes" in table["rows"][row]
                 and a.size not in table["rows"][row]["sizes"]):
             why = "not_eligible_for_size"
         elif agent == "cursor-agent" and row_alias(row) == "CURSOR" and (not a.cursor_model or a.cursor_mult > 2):
@@ -403,7 +415,7 @@ def main():
 
     if a.self_agent and a.self_agent != pick["agent"]:
         for row, agent in chain_agents:
-            if agent == a.self_agent and row_alias(row) != "CURSOR":
+            if agent == a.self_agent and row_alias(row) != "CURSOR" and not row_disabled(row):
                 if pool_ok(agent, a.size) and not (row_alias(row) == "R3" and not codex_ok):
                     rejected.append({"row": pick["row"], "agent": pick["agent"],
                                      "why": "self_agent_preferred"})
@@ -472,14 +484,23 @@ def self_test(table, a):
     except ValueError:
         errs.append("S smoke not JSON")
     r = subprocess.run(base + ["--size", "XL", "--claude-wk", "0.01",
-                               "--claude-h5", "0.01"],
+                               "--claude-h5", "0.01", "--provider-down", "cursor-agent"],
                        capture_output=True, text=True)
     try:
         d = json.loads(r.stdout)
         if d.get("action") != "defer":
-            errs.append("XL reserve did not defer: " + r.stdout[:120])
+            errs.append("XL both-pools-out did not defer: " + r.stdout[:120])
     except ValueError:
         errs.append("XL smoke not JSON")
+    r = subprocess.run(base + ["--size", "XL", "--claude-wk", "0.01",
+                               "--claude-h5", "0.01"],
+                       capture_output=True, text=True)
+    try:
+        d = json.loads(r.stdout)
+        if (d.get("pick") or {}).get("row") != "cursor-agent:claude-opus-5-5-max":
+            errs.append("XL overflow did not pick cursor-opus-max: " + r.stdout[:120])
+    except ValueError:
+        errs.append("XL overflow smoke not JSON")
     print(json.dumps({"self_test": "pass" if not errs else "fail",
                       "table_v": table.get("table_v"), "errors": errs}))
     return 0 if not errs else 1

@@ -1,0 +1,1 @@
+{"bundle": "power", "contract": "task-router-answers/1", "cursor_frac": null, "plan_notes": "all harnesses", "prune_missing": true, "spend_ceiling": 2.0, "agents": ["claude-code", "codex", "cursor-agent", "muse", "opencode"]}
